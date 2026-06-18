@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MainView: View {
-    @State private var vm = NavigationViewModel()
+    @StateObject private var vm = NavigationViewModel()
     @State private var showAlert = false
 
     var body: some View {

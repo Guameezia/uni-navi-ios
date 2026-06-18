@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 struct FloorMapView: View {
-    @Bindable var vm: NavigationViewModel
+    @ObservedObject var vm: NavigationViewModel
 
     var body: some View {
         GeometryReader { geo in
@@ -66,7 +66,8 @@ struct SVGWebView: UIViewRepresentable {
 
     private func loadSVG(in webView: WKWebView) {
         guard let name = MapConstants.mapAssetName(building: building, floor: floor),
-              let url = Bundle.main.url(forResource: name, withExtension: "svg", subdirectory: "Resources/Maps") else {
+              let url = Bundle.main.url(forResource: name, withExtension: "svg", subdirectory: "Resources/Maps")
+                ?? Bundle.main.url(forResource: name, withExtension: "svg") else {
             webView.loadHTMLString("<html><body style='background:transparent'></body></html>", baseURL: nil)
             return
         }

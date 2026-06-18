@@ -66,7 +66,9 @@ enum GraphBuilder {
     }
 
     private static func loadJSON<T: Decodable>(resource: String, subdirectory: String) -> [T] {
-        guard let url = Bundle.main.url(forResource: resource, withExtension: "json", subdirectory: subdirectory) else {
+        let url = Bundle.main.url(forResource: resource, withExtension: "json", subdirectory: subdirectory)
+            ?? Bundle.main.url(forResource: resource, withExtension: "json")
+        guard let url else {
             print("[UniNavi] Missing resource: \(subdirectory)/\(resource).json")
             return []
         }

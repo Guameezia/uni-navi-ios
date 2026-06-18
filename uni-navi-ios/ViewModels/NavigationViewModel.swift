@@ -1,39 +1,38 @@
 import Foundation
-import Observation
+import Combine
 
-@Observable
-final class NavigationViewModel {
+final class NavigationViewModel: ObservableObject {
     // Search
-    var startQuery = ""
-    var startSuggestions: [Node] = []
-    var selectedStartId = ""
-    var destinationQuery = ""
-    var destinationSuggestions: [Node] = []
-    var selectedDestinationId = ""
+    @Published var startQuery = ""
+    @Published var startSuggestions: [Node] = []
+    @Published var selectedStartId = ""
+    @Published var destinationQuery = ""
+    @Published var destinationSuggestions: [Node] = []
+    @Published var selectedDestinationId = ""
 
     // Route state
-    var statusText = "Select a start point and a destination to begin navigation"
-    var steps: [String] = []
-    var segments: [RouteSegment] = []
-    var transitions: [RouteTransition] = []
+    @Published var statusText = "Select a start point and a destination to begin navigation"
+    @Published var steps: [String] = []
+    @Published var segments: [RouteSegment] = []
+    @Published var transitions: [RouteTransition] = []
 
     // Map state
-    var activeBuilding = "S"
-    var activeFloor = "1F"
-    var availableBuildings = ["S"]
-    var availableFloors = MapConstants.floorOrder
+    @Published var activeBuilding = "S"
+    @Published var activeFloor = "1F"
+    @Published var availableBuildings = ["S"]
+    @Published var availableFloors = MapConstants.floorOrder
 
     // Route types
-    var comfortRoute: ComputedRoute?
-    var fastRoute: ComputedRoute?
-    var selectedRouteType: RouteMode = .comfort
-    var hasMultipleRoutes = false
+    @Published var comfortRoute: ComputedRoute?
+    @Published var fastRoute: ComputedRoute?
+    @Published var selectedRouteType: RouteMode = .comfort
+    @Published var hasMultipleRoutes = false
 
     // Directions
-    var directionsExpanded = false
+    @Published var directionsExpanded = false
 
     // Current floor route overlay data
-    var currentFloorPoints: [MapPoint] = []
+    @Published var currentFloorPoints: [MapPoint] = []
 
     // Internal
     private(set) var graph: NavigationGraph!

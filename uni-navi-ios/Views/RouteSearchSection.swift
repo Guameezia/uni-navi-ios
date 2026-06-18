@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RouteSearchSection: View {
-    @Bindable var vm: NavigationViewModel
+    @ObservedObject var vm: NavigationViewModel
     let onSearch: () -> Void
 
     var body: some View {

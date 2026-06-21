@@ -3,6 +3,8 @@ import WebKit
 
 struct FloorMapView: View {
     @ObservedObject var vm: NavigationViewModel
+    @GestureState private var dragOffset: CGSize = .zero
+    @State private var magnification: CGFloat = 1.0
 
     var body: some View {
         GeometryReader { geo in
@@ -27,8 +29,42 @@ struct FloorMapView: View {
                 .allowsHitTesting(false)
             }
             .frame(width: fitWidth, height: fitHeight)
+            .scaleEffect(vm.mapScale * magnification)
+            .offset(x: vm.mapOffset.width + dragOffset.width,
+                    y: vm.mapOffset.height + dragOffset.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(mapGestures)
+            .onTapGesture(count: 2) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    vm.resetMapTransform()
+                }
+            }
         }
+    }
+
+    private var mapGestures: some Gesture {
+        SimultaneousGesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    if magnification == 1.0 {
+                        vm.beginMapMagnification()
+                    }
+                    magnification = value
+                }
+                .onEnded { value in
+                    vm.updateMapMagnification(value)
+                    magnification = 1.0
+                },
+            DragGesture()
+                .updating($dragOffset) { value, state, _ in
+                    state = value.translation
+                }
+                .onEnded { value in
+                    vm.mapOffset.width += value.translation.width
+                    vm.mapOffset.height += value.translation.height
+                }
+        )
     }
 }
 
@@ -151,18 +187,16 @@ struct RouteOverlayCanvas: View {
 
             context.stroke(path, with: .color(.green), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
 
-            // Start marker
             let startPt = ortho[0]
             context.fill(
                 Path(ellipseIn: CGRect(x: startPt.x - 5, y: startPt.y - 5, width: 10, height: 10)),
-                with: .color(Color(red: 0.086, green: 0.639, blue: 0.165))
+                with: .color(Color.routeGreen)
             )
 
-            // End marker
             let endPt = ortho[ortho.count - 1]
             context.fill(
                 Path(ellipseIn: CGRect(x: endPt.x - 5, y: endPt.y - 5, width: 10, height: 10)),
-                with: .color(Color(red: 0.114, green: 0.306, blue: 0.847))
+                with: .color(Color.routeEndBlue)
             )
         }
         .frame(width: viewSize.width, height: viewSize.height)

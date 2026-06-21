@@ -1,5 +1,26 @@
 import Foundation
 import Combine
+import SwiftUI
+
+enum NavigationUIPhase {
+    case idle
+    case searching
+    case navigating
+}
+
+enum SheetDetent: Equatable {
+    case collapsed
+    case medium
+    case large
+
+    func heightFraction(for phase: NavigationUIPhase) -> CGFloat {
+        switch self {
+        case .collapsed: return 0.12
+        case .medium: return phase == .navigating ? 0.25 : 0.5
+        case .large: return phase == .navigating ? 0.65 : 0.58
+        }
+    }
+}
 
 final class NavigationViewModel: ObservableObject {
     // Search
@@ -31,6 +52,15 @@ final class NavigationViewModel: ObservableObject {
     // Directions
     @Published var directionsExpanded = false
 
+    // UI phase & sheet
+    @Published var uiPhase: NavigationUIPhase = .idle
+    @Published var sheetDetent: SheetDetent = .large
+
+    // Map transform
+    @Published var mapScale: CGFloat = 1.0
+    @Published var mapOffset: CGSize = .zero
+    private var mapScaleAtGestureStart: CGFloat = 1.0
+
     // Current floor route overlay data
     @Published var currentFloorPoints: [MapPoint] = []
 
@@ -55,7 +85,61 @@ final class NavigationViewModel: ObservableObject {
 
     // MARK: - Search
 
+    func beginSearching() {
+        uiPhase = .searching
+        sheetDetent = .large
+    }
+
+    func beginEditingRoute() {
+        steps = []
+        segments = []
+        transitions = []
+        comfortRoute = nil
+        fastRoute = nil
+        hasMultipleRoutes = false
+        currentFloorPoints = []
+        statusText = "Select a start point and a destination to begin navigation"
+        uiPhase = .searching
+        sheetDetent = .large
+        directionsExpanded = false
+        resetMapTransform()
+    }
+
+    func resetNavigation() {
+        steps = []
+        segments = []
+        transitions = []
+        comfortRoute = nil
+        fastRoute = nil
+        hasMultipleRoutes = false
+        currentFloorPoints = []
+        statusText = "Select a start point and a destination to begin navigation"
+        uiPhase = .idle
+        sheetDetent = .large
+        directionsExpanded = false
+        resetMapTransform()
+    }
+
+    func resetMapTransform() {
+        mapScale = 1.0
+        mapOffset = .zero
+        mapScaleAtGestureStart = 1.0
+    }
+
+    func zoomMap(by factor: CGFloat) {
+        mapScale = min(4.0, max(0.5, mapScale * factor))
+    }
+
+    func beginMapMagnification() {
+        mapScaleAtGestureStart = mapScale
+    }
+
+    func updateMapMagnification(_ value: CGFloat) {
+        mapScale = min(4.0, max(0.5, mapScaleAtGestureStart * value))
+    }
+
     func updateStartQuery(_ query: String) {
+        if uiPhase == .idle { beginSearching() }
         startQuery = query
         selectedStartId = ""
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -72,6 +156,7 @@ final class NavigationViewModel: ObservableObject {
     }
 
     func updateDestinationQuery(_ query: String) {
+        if uiPhase == .idle { beginSearching() }
         destinationQuery = query
         selectedDestinationId = ""
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -170,6 +255,9 @@ final class NavigationViewModel: ObservableObject {
         selectedDestinationId = destId
         destinationSuggestions = []
         directionsExpanded = true
+        uiPhase = .navigating
+        sheetDetent = .collapsed
+        resetMapTransform()
         return true
     }
 
@@ -207,6 +295,7 @@ final class NavigationViewModel: ObservableObject {
     func switchFloor(_ floor: String) {
         guard segments.contains(where: { $0.building == activeBuilding && $0.floor == floor }) else { return }
         activeFloor = floor
+        resetMapTransform()
         updateFloorOverlay()
     }
 

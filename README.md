@@ -19,11 +19,15 @@
 
 | 功能 Feature | 说明 Description |
 |---|---|
-| 起终点搜索 Search | 输入房间号或地标，最多 8 条自动补全（仅地标节点）<br>Autocomplete up to 8 suggestions for rooms and landmarks |
+| 起终点搜索 Search | 输入房间号或地标，最多 8 条自动补全（仅地标节点）；支持精确匹配与模糊匹配<br>Autocomplete up to 8 landmark suggestions; exact and fuzzy matching |
 | 路径规划 Routing | 基于图的最短路径；同层走走廊，跨层经电梯/楼梯<br>Graph-based shortest path; flat corridors on same floor, elevators/stairs across floors |
-| 双路线模式 Route modes | **Comfort**（优先电梯）与 **Fast**（优先楼梯）<br>**Comfort** (elevator-first) and **Fast** (stairs-first) |
-| 楼层地图 Floor map | `WKWebView` 加载 SVG + SwiftUI `Canvas` 绘制绿色路线<br>SVG floor plans via `WKWebView` with green route overlay on `Canvas` |
-| 分步指引 Directions | 可折叠的英文逐步导航说明<br>Collapsible step-by-step directions in English |
+| 双路线模式 Route modes | **Comfort**（优先电梯）与 **Fast**（优先楼梯）；跨层且路径不同时显示切换器<br>**Comfort** (elevator-first) and **Fast** (stairs-first); picker shown when routes differ |
+| 全屏地图 Full-screen map | `WKWebView` 加载 SVG + SwiftUI `Canvas` 绘制绿色路线（圆角折线、起终点标记）<br>SVG floor plans via `WKWebView` with green route overlay on `Canvas` (rounded corners, start/end markers) |
+| 地图交互 Map gestures | 双指缩放、拖拽平移、双击复位；右下角 +/- 与定位按钮<br>Pinch-to-zoom, drag-to-pan, double-tap reset; +/- and recenter controls |
+| 底部抽屉 Bottom sheet | 可拖拽的三档高度（collapsed / medium / large），搜索与导航指引分阶段展示<br>Draggable sheet with three detents; search and directions shown by UI phase |
+| 楼层切换 Floor picker | 导航时左下角浮动楼层选择器，仅显示路线经过的楼层<br>Floating floor picker (bottom-left) showing only floors on the active route |
+| 路线摘要 Route summary | 导航时顶部显示起终点与步数，可一键返回编辑<br>Top summary bar with start/end and step count; tap Edit to re-plan |
+| 分步指引 Directions | 底部抽屉内英文逐步导航说明，支持上滑展开<br>Step-by-step directions in English inside the bottom sheet |
 | 数据校验 Validation | 启动时校验节点/边合法性，错误输出到控制台<br>Graph validation on launch; errors logged to console |
 
 ---
@@ -49,7 +53,17 @@ uni-navi-ios/
 ├── uni-navi-ios/
 │   ├── App/              # App entry — UniNaviIOSApp.swift
 │   ├── ViewModels/       # NavigationViewModel (state hub)
-│   ├── Views/            # MainView, FloorMapView, search, floor picker, directions
+│   ├── Views/
+│   │   ├── MainView.swift              # Root layout: map + overlays + bottom sheet
+│   │   ├── FloorMapView.swift          # SVG map + route canvas + gestures
+│   │   ├── NavigationBottomSheet.swift # Draggable search / directions sheet
+│   │   ├── RouteSearchSection.swift    # Start / destination inputs + Go
+│   │   ├── RouteSummaryBar.swift       # Top bar during navigation
+│   │   ├── RouteTypePicker.swift       # Comfort / Fast toggle
+│   │   ├── FloorPicker.swift           # Horizontal floor selector
+│   │   ├── MapControlsOverlay.swift    # Zoom +/- and reset buttons
+│   │   ├── DirectionsPanel.swift     # Numbered step list
+│   │   └── Theme.swift                 # Colors, button styles, sheet handle
 │   ├── Engine/           # GraphBuilder, DijkstraRouter, RoutePresenter, GraphValidator
 │   ├── Models/           # Node, Edge, RouteTypes
 │   ├── Config/           # MapConstants (floor order, SVG viewBox, coordinate offsets)
@@ -64,12 +78,14 @@ uni-navi-ios/
 
 | 模块 Module | 职责 Responsibility |
 |---|---|
-| `NavigationViewModel` | 加载图数据、搜索补全、调用路由引擎、管理楼层与路线状态<br>Loads graph, search autocomplete, routing, floor/route state |
+| `NavigationViewModel` | 加载图数据、搜索补全、路由计算、UI 阶段与抽屉状态、地图变换<br>Loads graph, search, routing, UI phase/sheet state, map transform |
+| `MainView` | 全屏地图 + 顶部摘要栏 + 浮动楼层选择器 + 地图控件 + 底部抽屉<br>Full-screen map layout with summary bar, floor picker, controls, and sheet |
+| `NavigationBottomSheet` | 搜索/导航分阶段内容，拖拽切换 collapsed / medium / large<br>Phase-aware sheet content with drag-to-resize detents |
 | `GraphBuilder` | 从 JSON 构建无向邻接表<br>Builds undirected adjacency list from JSON |
 | `DijkstraRouter` | Dijkstra 最短路径 + 跨层竖井组合搜索<br>Dijkstra shortest path + cross-floor shaft routing |
 | `RoutePresenter` | 路线分段、楼层过渡、英文指引文案<br>Route segments, floor transitions, direction text |
 | `GraphValidator` | 节点/边合法性校验<br>Node and edge validation |
-| `FloorMapView` | SVG 平面图 + 路线叠加层<br>SVG floor plan + route overlay |
+| `FloorMapView` | SVG 平面图、路线叠加层、缩放/平移手势<br>SVG floor plan, route overlay, zoom/pan gestures |
 
 ---
 
@@ -78,9 +94,14 @@ uni-navi-ios/
 ```mermaid
 flowchart TB
     subgraph ui [UI Layer]
-        MainView --> RouteSearchSection
         MainView --> FloorMapView
-        MainView --> DirectionsPanel
+        MainView --> RouteSummaryBar
+        MainView --> FloorPicker
+        MainView --> MapControlsOverlay
+        MainView --> NavigationBottomSheet
+        NavigationBottomSheet --> RouteSearchSection
+        NavigationBottomSheet --> DirectionsPanel
+        RouteSummaryBar --> RouteTypePicker
     end
 
     subgraph vm [ViewModel]
@@ -109,7 +130,15 @@ flowchart TB
     RoutePresenter --> FloorMapView
 ```
 
-**用户流程 / User flow:** 选择起点/终点 → 点击 Go → Dijkstra 算路 → 地图显示路线 → 切换楼层/路线模式 → 查看 Directions
+### UI 阶段 / UI Phases
+
+| 阶段 Phase | 界面状态 UI State |
+|---|---|
+| `idle` | 全屏地图 + 底部大抽屉（提示选择起终点）<br>Full-screen map + large bottom sheet prompting input |
+| `searching` | 用户聚焦搜索框后进入；抽屉显示起终点输入与 Go 按钮<br>Entered when user focuses a search field; sheet shows route search form |
+| `navigating` | 算路成功后进入；顶部摘要栏 + 抽屉收起，上滑查看 Directions<br>After route found; summary bar on top, sheet collapsed, swipe up for directions |
+
+**用户流程 / User flow:** 点击搜索框 → 输入起终点 → Go → Dijkstra 算路 → 地图显示路线 → 顶部切换 Comfort/Fast → 左下角切换楼层 → 上滑抽屉查看 Directions → Edit 重新规划
 
 ---
 
@@ -136,11 +165,11 @@ flowchart TB
 | **Comfort** | 电梯 > 楼梯 > 3F 出入口 |
 | **Fast** | 楼梯 > 3F 出入口 > 电梯 |
 
-同层起终点：两种模式结果相同。跨层时分别计算 comfort/fast；若路径不同，UI 显示路线切换器。
+同层起终点：两种模式结果相同，不显示路线切换器。跨层且 comfort/fast 路径不同时，顶部 `RouteTypePicker` 可切换。
 
 ### 地图坐标映射 Map Coordinate Mapping
 
-`FloorMapView` 使用 `MapConstants` 中的 `viewBoxes` 与 `modelOffsets` 将节点 `(x, y)` 映射到 Canvas 坐标，绘制绿色正交化折线路线。
+`FloorMapView` 使用 `MapConstants` 中的 `viewBoxes` 与 `modelOffsets` 将节点 `(x, y)` 映射到 Canvas 坐标。路线经正交化与圆角处理后绘制，起点为绿色圆点、终点为蓝色圆点。地图支持 0.5×–4× 缩放与自由平移，切换楼层或重新算路时自动复位。
 
 ---
 

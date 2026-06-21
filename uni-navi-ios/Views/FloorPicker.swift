@@ -4,6 +4,7 @@ struct FloorPicker: View {
     let floors: [String]
     let activeFloor: String
     let onSelect: (String) -> Void
+    var floating: Bool = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -23,6 +24,19 @@ struct FloorPicker: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+        .modifier(FloorPickerContainerModifier(floating: floating))
+    }
+}
+
+private struct FloorPickerContainerModifier: ViewModifier {
+    let floating: Bool
+
+    func body(content: Content) -> some View {
+        if floating {
+            content.floatingPanel()
+        } else {
+            content
         }
     }
 }
